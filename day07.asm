@@ -12,6 +12,9 @@ section .data
     filename    db   "inputs/day07",0
     ndirs       dw    1 ; start at 1 for root dir
     dirs_i      dw    0
+    disk_space  dq  70000000
+    needed      dq  30000000
+
     SYS_READ    equ   0
     SYS_WRITE   equ   1
     SYS_CLOSE   equ   3   
@@ -74,6 +77,15 @@ end_count_dirs:
 
     call        dir_size
 
+    ; substract total size of root dir from disk size
+    ; to obtain remaining free disk space
+    sub         [disk_space], rax
+
+    ; substract free disk space from
+    ; total space needed for the update
+    mov         rax, [disk_space]
+    sub         [needed], rax
+
     ; sort directories sizes 
     mov         rdi, dirs_sz
     xor         rsi, rsi
@@ -82,6 +94,7 @@ end_count_dirs:
     mov         rcx, compar
     call        quicksort
 
+    ; PART 1:
     ; sum all directories no larger than MAX_SIZE
     xor         r8, r8
     xor         r9, r9
@@ -96,13 +109,28 @@ end_part1:
     mov         rdi, r9
     call        print_int
 
+    ; PART 2:
+    ; find directory at least as big as the 
+    ; remaining space needed for update
+    xor         r8, r8
+loop_part2:
+    lea         r9, [dirs_sz + r8 * 8]
+    mov         r10, qword [r9]
+    cmp         r10, [needed]
+    jge         end_part2
+    inc         r8
+    jmp         loop_part2
+end_part2:
+    mov         rdi, r10
+    call        print_int
+
     mov         rax, SYS_EXIT
     mov         rdi, 0
     syscall
 
 
-dir_size:
     ; recursively compute the size of directories
+dir_size:
     push        rbp
     mov         rbp, rsp
     sub         rsp, 16
@@ -130,7 +158,7 @@ next_line:
     call        parse_int
     add         qword [rbp - 8], rax
     jmp         next_line
-command:
+command: ; either '$ cd ..' or '$ cd <dir>'
     cmp         byte [buffer + 5], ASCII_DOT
     je          end_dir_size
     call        dir_size
@@ -138,8 +166,9 @@ command:
     jmp         next_line
 end_dir_size:
     mov         rax, qword [rbp - 8]
-    mov         rbx, dirs_sz
-    mov         rcx, [dirs_i]
+    lea         rbx, [dirs_sz]
+    xor         rcx, rcx
+    mov         cx, [dirs_i]
     lea         r8, [rbx + 8 * rcx + 0]
     mov         qword [r8], rax
     inc         word [dirs_i]
