@@ -49,8 +49,6 @@ loop_read_line:
 	mv 	s3, a1
 	mv	s4, a2
 
-#stop_here:
-
 	sub	t0, s3, s1
 	bgtz	t0, x_in_order
 	bltz	t0, x_in_reverse
@@ -148,7 +146,6 @@ move_failed:
 	mv	a0, s0
 	mv	a1, s1
 	mv	a2, s2
-stop_here:
 	call	set_insert
 	inc	s7
 	j	loop_grains
