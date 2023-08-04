@@ -18,17 +18,27 @@
 
 filename:
 	.string "inputs/day14"
-	#.string "inputs/day14-test"
 
 moves_x:
 	.byte	0				# straight down
 	.byte  -1				# down-left
 	.byte   1				# down-right
 
+array_limits:
+	.dword	0, 999, 0, 499
+
+	.section .bss
+
+coordinates:
+	.zero	16
+
 	.section .text
 
 main:
-	call	set_new
+	li	a0, 2
+	la	a1, array_limits
+	li	a2, 1
+	call	create_array
 	mv	s0, a0
 
 	la      a0, filename
@@ -91,12 +101,15 @@ next:
 	mv	s1, s5				# copy start coordinate
 loop_insert_rocks:
 	mv	a0, s0
+	la	a1, coordinates
 	jr	s8
 lir_return:
 	ble	a2, s10, not_deeper_rock
 	mv	s10, a2
 not_deeper_rock:
-	call	set_insert
+	call	array_addr
+	li	t0, 1
+	sb	t0, 0(a0)
 	inc	s1
 	ble	s1, s6, loop_insert_rocks
 
@@ -133,11 +146,12 @@ loop_try_moves:
 	lb	t0, 0(s5)
 	add	s3, s1, t0
 	mv	a0, s0
-	mv	a1, s3
-	mv	a2, s4
-	call	set_search
-	bnez	a0, move_failed
-	#bgt	s4, s10, end			# grain went deeper than the deepest rock
+	la	a1, coordinates
+	sd	s3, 0(a1)
+	sd	s4, 8(a1)
+	call	array_addr
+	lb	t0, 0(a0)
+	bnez	t0, move_failed
 	mv	s1, s3
 	mv	s2, s4
 	j	loop_move_down
@@ -154,9 +168,12 @@ move_failed:
 	j	end
 next2:
 	mv	a0, s0
-	mv	a1, s1
-	mv	a2, s2
-	call	set_insert
+	la	a1, coordinates
+	sd	s1, 0(a1)
+	sd	s2, 8(a1)
+	call	array_addr
+	li	t0, 1
+	sb	t0, (a0)
 	j	loop_grains
 
 end:
@@ -168,13 +185,13 @@ end:
 	ecall
 
 x_is_variable:
-	mv	a1, s1
-	mv	a2, s7
+	sd	s1, 0(a1)
+	sd	s7, 8(a1)
 	j	lir_return
 
 y_is_variable:
-	mv	a1, s7
-	mv	a2, s1
+	sd	s7, 0(a1)
+	sd	s1, 8(a1)
 	j	lir_return
 
 read_pair:
