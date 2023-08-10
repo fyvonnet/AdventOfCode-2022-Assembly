@@ -13,6 +13,9 @@
 	.set	ASCII_SPACE, 32
 	.set	START_X, 500
 	.set	START_Y, 0
+	.set	EMPTY, 0
+	.set	ROCK, 1
+	.set	SAND, 2
 
 	.section .rodata
 
@@ -108,7 +111,7 @@ lir_return:
 	mv	s10, a2
 not_deeper_rock:
 	call	array_addr
-	li	t0, 1
+	li	t0, ROCK
 	sb	t0, 0(a0)
 	inc	s1
 	ble	s1, s6, loop_insert_rocks
@@ -132,51 +135,87 @@ not_deeper_rock:
 	addi	s10, s10, 1			# last grain of sand one level below the lowest rock
 
 
-	li	s7, 0				# grains counter
-loop_grains:
-	li	s1, START_X
-	li	s2, START_Y
-loop_move_down:
-	beq	s2, s10, move_failed		# grain has reached the floor and can't go lower
-	la	s5, moves_x
-	addi	s4, s2, 1
-	li	s6, 3
-	
-loop_try_moves:
-	lb	t0, 0(s5)
-	add	s3, s1, t0
+
+	# build pile of sand from top to bottom instead of simulating the fall of each grain of sand
+
+
+	li	s7, 1				# grains counter
+	li	s1, 1				# initialize depth (Y coordinate)
+	li	s2, START_X			# initializing starting X coordinate
+	li	s3, START_X			# initializing ending X coordinate
+
+	# insert one grain of sand at the pouring coordinate
 	mv	a0, s0
 	la	a1, coordinates
-	sd	s3, 0(a1)
-	sd	s4, 8(a1)
+	li	t1, START_X
+	sd	t1, 0(a1)
+	li	t1, START_Y
+	sd	t1, 8(a1)
+	call	array_addr
+	li	t1, SAND
+	sb	t1, 0(a0)
+
+	li	s9, SAND
+
+depth_loop:
+	dec	s2				# decrement lower X limit
+	inc	s3				# increment upper X limit
+	mv	s4, s2				# start X at lower limit
+width_loop:
+	# check if rock is present at current coordinate
+	mv	a0, s0
+	la	a1, coordinates
+	sd	s4, 0(a1)
+	sd	s1, 8(a1)
 	call	array_addr
 	lb	t0, 0(a0)
-	bnez	t0, move_failed
-	mv	s1, s3
-	mv	s2, s4
-	j	loop_move_down
-move_failed:
-	inc	s5
-	dec	s6
-	bnez	s6, loop_try_moves
-	# all moves attempts failed, grain of sand comes to rest
-	inc	s7
-	li	t1, START_X
-	li	t2, START_Y
-	bne	t1, s1, next2
-	bne	t2, s2, next2
-	j	end
-next2:
-	mv	a0, s0
-	la	a1, coordinates
-	sd	s1, 0(a1)
-	sd	s2, 8(a1)
-	call	array_addr
-	li	t0, 1
-	sb	t0, (a0)
-	j	loop_grains
+	bnez	t0, skip_grain
 
-end:
+	# count number of grains above the current one
+	mv	s6, zero			# initialize above grains count
+	li	s8, 3				# initialize countdown
+	la	a1, coordinates
+	addi	t0, s1, -1
+	sd	t0, 8(a1)
+	addi	s5, s4, -1
+above_loop:
+	la	a1, coordinates
+	sd	s5, 0(a1)
+	mv	a0, s0
+	call	array_addr
+	lb	t0, 0(a0)
+	bne	t0, s9, skip_inc		# not a grain
+	inc	s6				# increase above grains count
+skip_inc:
+	dec	s8				# decrease countdown
+	inc	s5				# increase X ccordinate
+	bnez	s8, above_loop
+
+	beqz	s6, skip_grain			# no grains of sand above
+
+	# insert grain of sand
+	la	a1, coordinates
+	sd	s4, 0(a1)
+	sd	s1, 8(a1)
+	mv	a0, s0
+	call	array_addr
+	li	t0, SAND
+	sb	t0, 0(a0)
+	inc	s7
+
+skip_grain:
+
+	# end of width loop
+	inc	s4
+	ble	s4, s3, width_loop
+
+	# end of depth_loop
+	inc	s1
+	ble	s1, s10, depth_loop
+	
+
+	# print result and exit
+
 	mv	a0, s7
 	call	print_int
 
