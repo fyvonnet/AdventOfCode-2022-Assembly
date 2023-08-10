@@ -27,23 +27,15 @@ moves_x:
 	.byte  -1				# down-left
 	.byte   1				# down-right
 
-array_limits:
-	.dword	0, 999, 0, 499
-
 	.section .bss
 
-coordinates:
-	.zero	16
+matrix:
+	#500x1000
+	.zero	500000
 
 	.section .text
 
 main:
-	li	a0, 2
-	la	a1, array_limits
-	li	a2, 1
-	call	create_array
-	mv	s0, a0
-
 	la      a0, filename
 	call    map_input_file
 	add	s11, a0, a1
@@ -103,8 +95,6 @@ next:
 	mv	s9, a0				# save input pointer
 	mv	s1, s5				# copy start coordinate
 loop_insert_rocks:
-	mv	a0, s0
-	la	a1, coordinates
 	jr	s8
 lir_return:
 	ble	a2, s10, not_deeper_rock
@@ -145,12 +135,8 @@ not_deeper_rock:
 	li	s3, START_X			# initializing ending X coordinate
 
 	# insert one grain of sand at the pouring coordinate
-	mv	a0, s0
-	la	a1, coordinates
-	li	t1, START_X
-	sd	t1, 0(a1)
-	li	t1, START_Y
-	sd	t1, 8(a1)
+	li	a0, START_X
+	li	a1, START_Y
 	call	array_addr
 	li	t1, SAND
 	sb	t1, 0(a0)
@@ -163,10 +149,8 @@ depth_loop:
 	mv	s4, s2				# start X at lower limit
 width_loop:
 	# check if rock is present at current coordinate
-	mv	a0, s0
-	la	a1, coordinates
-	sd	s4, 0(a1)
-	sd	s1, 8(a1)
+	mv	a0, s4
+	mv	a1, s1
 	call	array_addr
 	lb	t0, 0(a0)
 	bnez	t0, skip_grain
@@ -174,14 +158,14 @@ width_loop:
 	# count number of grains above the current one
 	mv	s6, zero			# initialize above grains count
 	li	s8, 3				# initialize countdown
-	la	a1, coordinates
-	addi	t0, s1, -1
-	sd	t0, 8(a1)
+	addi	s11, s1, -1
 	addi	s5, s4, -1
 above_loop:
-	la	a1, coordinates
-	sd	s5, 0(a1)
-	mv	a0, s0
+	#la	a1, coordinates
+	#sd	s5, 0(a1)
+	#mv	a0, s0
+	mv	a0, s5
+	mv	a1, s11
 	call	array_addr
 	lb	t0, 0(a0)
 	bne	t0, s9, skip_inc		# not a grain
@@ -194,10 +178,8 @@ skip_inc:
 	beqz	s6, skip_grain			# no grains of sand above
 
 	# insert grain of sand
-	la	a1, coordinates
-	sd	s4, 0(a1)
-	sd	s1, 8(a1)
-	mv	a0, s0
+	mv	a0, s4
+	mv	a1, s1
 	call	array_addr
 	li	t0, SAND
 	sb	t0, 0(a0)
@@ -224,13 +206,17 @@ skip_grain:
 	ecall
 
 x_is_variable:
-	sd	s1, 0(a1)
-	sd	s7, 8(a1)
+	mv	a0, s1
+	mv	a1, s7
+	#sd	s1, 0(a1)
+	#sd	s7, 8(a1)
 	j	lir_return
 
 y_is_variable:
-	sd	s7, 0(a1)
-	sd	s1, 8(a1)
+	mv	a0, s7
+	mv	a1, s1
+	#sd	s7, 0(a1)
+	#sd	s1, 8(a1)
 	j	lir_return
 
 read_pair:
@@ -247,3 +233,10 @@ read_pair:
 	addi	sp, sp, 8
 	ret
 
+array_addr:
+	la	t0, matrix
+	add	a0, t0, a0
+	li	t0, 1000
+	mul	a1, a1, t0
+	add	a0, a0, a1
+	ret
